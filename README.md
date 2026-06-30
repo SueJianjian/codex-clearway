@@ -1,4 +1,4 @@
-# Codex Split Proxy
+# Codex Clearway
 
 Run Codex-launched Windows PowerShell commands through a local `mihomo` split proxy without changing Windows global proxy settings or opening a GUI proxy client.
 
@@ -243,7 +243,7 @@ Stop the managed mihomo process:
 .\scripts\codex-split-proxy.ps1 stop
 ```
 
-Remove auto mode from your PowerShell profile:
+Remove Clearway auto mode from your PowerShell profile:
 
 ```powershell
 .\scripts\uninstall-profile.ps1

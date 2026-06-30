@@ -3,7 +3,7 @@ name: split-proxy
 description: Start, stop, configure, and use a local mihomo split proxy for Codex terminal commands without changing Windows global proxy settings.
 ---
 
-# Codex Split Proxy
+# Codex Clearway
 
 Use this skill when the user wants Codex-launched terminal commands to access non-mainland-China networks through a proxy while mainland China and local network traffic goes direct.
 

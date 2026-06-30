@@ -49,7 +49,7 @@ function global:codex-proxy-enable {
     }
 
         if (!$Quiet) {
-            Write-Host "Codex proxy enabled for this PowerShell session: 127.0.0.1:$httpPort"
+            Write-Host "Codex Clearway enabled for this PowerShell session: 127.0.0.1:$httpPort"
         }
     } catch {
         return

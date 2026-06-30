@@ -11,11 +11,11 @@ $begin = "# BEGIN codex-split-proxy"
 $end = "# END codex-split-proxy"
 
 if ($content -notmatch [regex]::Escape($begin)) {
-    Write-Host "Codex Split Proxy auto mode is not installed in $profilePath"
+    Write-Host "Codex Clearway auto mode is not installed in $profilePath"
     return
 }
 
 $pattern = "(?s)\r?\n?# BEGIN codex-split-proxy.*?# END codex-split-proxy\r?\n?"
 $content = [regex]::Replace($content, $pattern, "`r`n")
 Set-Content -Encoding UTF8 $profilePath $content
-Write-Host "Removed Codex Split Proxy auto mode from $profilePath"
+Write-Host "Removed Codex Clearway auto mode from $profilePath"

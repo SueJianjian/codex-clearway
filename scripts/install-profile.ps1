@@ -38,4 +38,4 @@ if ($content -match [regex]::Escape($begin)) {
 }
 
 Set-Content -Encoding UTF8 $profilePath $content
-Write-Host "Installed Codex Split Proxy auto mode into $profilePath"
+Write-Host "Installed Codex Clearway auto mode into $profilePath"
