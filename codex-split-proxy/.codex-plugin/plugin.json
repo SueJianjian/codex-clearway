@@ -1,0 +1,25 @@
+{
+  "name": "codex-split-proxy",
+  "version": "0.1.0",
+  "description": "Run a local mihomo split proxy for Codex terminal commands.",
+  "author": {
+    "name": "Local developer"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Split Proxy",
+    "shortDescription": "Run Codex terminal commands through a split proxy.",
+    "longDescription": "Starts and manages a local mihomo instance for Codex-launched terminal commands. Mainland China and local network traffic goes direct, while other traffic goes through your Clash-compatible subscription.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Network"
+    ],
+    "defaultPrompt": [
+      "Set up Codex split proxy.",
+      "Start the Codex proxy.",
+      "Run a command through the proxy."
+    ]
+  }
+}

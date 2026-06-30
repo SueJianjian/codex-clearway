@@ -1,0 +1,11 @@
+.codex-split-proxy/
+bin/
+*.log
+*.zip
+*.tmp
+subscription.yaml
+mihomo.yaml
+config.json
+GeoIP.dat
+GeoSite.dat
+*.pid
