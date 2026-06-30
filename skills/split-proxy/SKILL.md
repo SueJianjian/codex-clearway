@@ -65,6 +65,6 @@ or:
 - The subscription must be Clash/mihomo YAML with a `proxies:` section.
 - If the subscription has `proxy-groups:`, those groups are preserved.
 - If no `proxy-groups:` exists, the script creates a `Proxy` select group from detected proxy names.
-- Rules force private networks, `GEOSITE,cn`, and `GEOIP,CN` to `DIRECT`; everything else goes to `Proxy`.
+- Generated rules add local/private-network direct rules, then preserve subscription rules. If the subscription has no rules, the fallback is `DOMAIN-SUFFIX,cn,DIRECT` and `MATCH,<proxy-group>`.
 - If port `7890` or `7891` is already in use, startup fails with the owning process instead of killing it.
 - If GitHub release downloads are unavailable, copy a compatible `mihomo.exe` to `%USERPROFILE%\.codex-split-proxy\bin\mihomo.exe`.
