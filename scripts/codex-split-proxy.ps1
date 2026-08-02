@@ -1,6 +1,6 @@
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("init", "start", "stop", "status", "update", "env", "run", "config-path", "migrate-config")]
+    [ValidateSet("init", "start", "stop", "status", "update", "env", "run", "config-path", "migrate-config", "select")]
     [string]$Command = "status",
 
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -289,6 +289,12 @@ function Update-ConfigFromSubscription {
     Write-Host "Generated $MihomoConfigPath"
 }
 
+function Test-MihomoConfigHasController($Config) {
+    if (!(Test-Path $MihomoConfigPath)) { return $false }
+    $expected = "external-controller: 127.0.0.1:$($Config.controllerPort)"
+    return [bool](Select-String -LiteralPath $MihomoConfigPath -SimpleMatch $expected -Quiet)
+}
+
 function Write-Env {
     $config = Read-JsonConfig
     $http = "http://127.0.0.1:$($config.httpPort)"
@@ -338,7 +344,7 @@ switch ($Command) {
             Write-Host "mihomo is already running with PID $((Get-ManagedProcess).Id)."
             return
         }
-        if (!(Test-Path $MihomoConfigPath)) { Update-ConfigFromSubscription }
+        if (!(Test-MihomoConfigHasController $config)) { Update-ConfigFromSubscription }
         Assert-PortFree $config.httpPort
         Assert-PortFree $config.socksPort
         Assert-PortFree $config.controllerPort
@@ -370,6 +376,7 @@ switch ($Command) {
         Write-Host "Generated mihomo config: $MihomoConfigPath"
         Write-Host "HTTP proxy: 127.0.0.1:$($config.httpPort)"
         Write-Host "SOCKS5 proxy: 127.0.0.1:$($config.socksPort)"
+        Write-Host "Controller: 127.0.0.1:$($config.controllerPort)"
         if ($proc) { Write-Host "Status: running, PID $($proc.Id)" } else { Write-Host "Status: stopped" }
         if (Test-Path $SubscriptionPath) { Write-Host "Subscription cache: $((Get-Item $SubscriptionPath).LastWriteTime)" }
         if (Test-Path $LogPath) {
@@ -393,6 +400,17 @@ switch ($Command) {
     "migrate-config" {
         $config = Assert-Configured
         Write-Host "Migrated private config at $ConfigPath"
+    }
+    "select" {
+        $config = Assert-Configured
+        if (!(Get-ManagedProcess)) {
+            & $PSCommandPath start
+        }
+        . (Join-Path $PSScriptRoot "proxy-selection.ps1")
+        $result = Invoke-ProxySelection -Config $config -HttpPort ([int]$config.httpPort)
+        if (!$result.Success) { throw $result.Error }
+        Write-Host "Selected node '$($result.Node)' with $($result.Delay) ms GitHub latency."
+        return $result
     }
 }
 }
