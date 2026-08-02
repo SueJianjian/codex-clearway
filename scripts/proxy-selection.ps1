@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.Net.Http
 
 function New-SelectionResult([bool]$Success, [string]$Node = "", [int]$Delay = 0, [string]$Error = "") {
     return [pscustomobject]@{
@@ -9,19 +10,42 @@ function New-SelectionResult([bool]$Success, [string]$Node = "", [int]$Delay = 0
     }
 }
 
-function Invoke-ControllerRest([string]$Method, [string]$Uri, $Headers, [string]$Body = $null) {
-    $parameters = @{
-        Method = $Method
-        Uri = $Uri
-        Headers = $Headers
-        UseBasicParsing = $true
-        TimeoutSec = 10
+function ConvertFrom-ControllerBytes([byte[]]$Bytes) {
+    if ($null -eq $Bytes -or $Bytes.Length -eq 0) { return $null }
+    $json = [Text.Encoding]::UTF8.GetString($Bytes)
+    return $json | ConvertFrom-Json
+}
+
+function New-ControllerRequest([string]$Method, [string]$Uri, $Headers, $Body = $null) {
+    $request = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::new($Method)), $Uri
+    foreach ($key in $Headers.Keys) {
+        [void]$request.Headers.TryAddWithoutValidation([string]$key, [string]$Headers[$key])
     }
     if ($null -ne $Body) {
-        $parameters.Body = $Body
-        $parameters.ContentType = "application/json"
+        $request.Content = New-Object System.Net.Http.StringContent ([string]$Body), ([Text.Encoding]::UTF8), "application/json"
     }
-    return Invoke-RestMethod @parameters
+    return $request
+}
+
+function Invoke-ControllerRest([string]$Method, [string]$Uri, $Headers, $Body = $null) {
+    $handler = New-Object System.Net.Http.HttpClientHandler
+    $handler.UseProxy = $false
+    $client = New-Object System.Net.Http.HttpClient $handler
+    $client.Timeout = [TimeSpan]::FromSeconds(10)
+    $request = New-ControllerRequest $Method $Uri $Headers $Body
+    try {
+        $response = $client.SendAsync($request).GetAwaiter().GetResult()
+        if (!$response.IsSuccessStatusCode) {
+            throw "Controller returned HTTP $([int]$response.StatusCode)."
+        }
+        $bytes = $response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
+        return ConvertFrom-ControllerBytes $bytes
+    } finally {
+        if ($response) { $response.Dispose() }
+        $request.Dispose()
+        $client.Dispose()
+        $handler.Dispose()
+    }
 }
 
 function Get-ProxyValue($ProxyMap, [string]$Name) {
@@ -126,6 +150,7 @@ function Invoke-ProxySelection {
         $controller = & $RestInvoker "GET" "$controllerBase/proxies" $headers $null
         $proxyMap = $controller.proxies
         $primary = $proxyMap.PSObject.Properties | Where-Object {
+            $_.Name -notin @("GLOBAL", "DIRECT", "REJECT") -and
             $_.Value.type -eq "Selector" -and $_.Value.PSObject.Properties["all"]
         } | Select-Object -First 1
         if (!$primary) { return New-SelectionResult $false "" 0 "No selectable proxy group is available." }

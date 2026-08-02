@@ -17,6 +17,7 @@ function Assert-Match([string]$Pattern, [string]$Actual, [string]$Message) {
 $env:CODEX_CLEARWAY_TEST_IMPORT = "1"
 . (Join-Path $PSScriptRoot "..\scripts\codex-split-proxy.ps1")
 Assert-Match "amd64-compatible" $MihomoZipUrl "download uses the broadly compatible Windows build"
+Assert-Equal "Clash.Meta" $SubscriptionUserAgent "subscription requests the complete mihomo profile"
 
 $legacy = [pscustomobject]@{
     subscriptionUrl = "private-value"

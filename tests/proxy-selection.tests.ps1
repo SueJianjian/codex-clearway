@@ -16,6 +16,14 @@ function Assert-Equal($Expected, $Actual, [string]$Message) {
 
 . (Join-Path $PSScriptRoot "..\scripts\proxy-selection.ps1")
 
+$utf8Json = [Text.Encoding]::UTF8.GetBytes('{"name":"香港节点"}')
+$decodedJson = ConvertFrom-ControllerBytes $utf8Json
+Assert-Equal "香港节点" $decodedJson.name "controller JSON is decoded explicitly as UTF-8"
+
+$request = New-ControllerRequest "GET" "http://127.0.0.1:19090/proxies" @{} $null
+Assert-True ($null -eq $request.Content) "GET controller request omits an empty body"
+$request.Dispose()
+
 $config = [pscustomobject]@{
     controllerPort = 19090
     controllerSecret = "local-secret"
@@ -26,6 +34,7 @@ $config = [pscustomobject]@{
 
 $proxyResponse = [pscustomobject]@{
     proxies = [pscustomobject]@{
+        "GLOBAL" = [pscustomobject]@{ type = "Selector"; all = @("Main Group") }
         "Main Group" = [pscustomobject]@{ type = "Selector"; all = @("Nested Group", "slow-node", "DIRECT", "REJECT-DROP") }
         "Nested Group" = [pscustomobject]@{ type = "URLTest"; all = @("fast-node", "failed-node", "PASS", "COMPATIBLE") }
         "fast-node" = [pscustomobject]@{ type = "Shadowsocks" }
@@ -39,6 +48,7 @@ $proxyResponse = [pscustomobject]@{
 }
 
 $script:capturedSwitch = $null
+$script:capturedSwitchUri = $null
 $rest = {
     param($Method, $Uri, $Headers, $Body)
     if ($Method -eq "GET" -and $Uri -match "/proxies$") { return $proxyResponse }
@@ -48,6 +58,7 @@ $rest = {
         throw "timeout"
     }
     if ($Method -eq "PUT") {
+        $script:capturedSwitchUri = $Uri
         $script:capturedSwitch = $Body | ConvertFrom-Json
         return $null
     }
@@ -59,6 +70,7 @@ Assert-True $result.Success "selection succeeds"
 Assert-Equal "fast-node" $result.Node "lowest delay node wins"
 Assert-Equal 42 $result.Delay "reported delay matches"
 Assert-Equal "fast-node" $script:capturedSwitch.name "selector switches primary group"
+Assert-True ($script:capturedSwitchUri -match "Main%20Group$") "selector excludes the GLOBAL group"
 
 $verificationFailure = Invoke-ProxySelection -Config $config -HttpPort 17890 -RestInvoker $rest -ProxyVerifier { return $false }
 Assert-False $verificationFailure.Success "final verification is required"
