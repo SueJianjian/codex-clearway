@@ -24,7 +24,7 @@ $DefaultTestUrl = "https://api.github.com"
 $DefaultTestTimeoutMs = 5000
 $DefaultTestConcurrency = 6
 $MihomoVersion = "v1.19.13"
-$MihomoZipUrl = "https://github.com/MetaCubeX/mihomo/releases/download/$MihomoVersion/mihomo-windows-amd64-$MihomoVersion.zip"
+$MihomoZipUrl = "https://github.com/MetaCubeX/mihomo/releases/download/$MihomoVersion/mihomo-windows-amd64-compatible-$MihomoVersion.zip"
 
 function Ensure-AppDir {
     New-Item -ItemType Directory -Force -Path $AppDir, $BinDir | Out-Null
