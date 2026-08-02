@@ -63,6 +63,7 @@ or:
 ## Behavior Notes
 
 - In Codex PowerShell terminals, `auto-env.ps1` can be loaded from the PowerShell profile to automatically start mihomo and export proxy environment variables.
+- Loading `auto-env.ps1` defines the manual helper commands in regular PowerShell sessions too; automatic enable remains gated by `CODEX_SHELL=1`.
 - Before exporting variables, each new Codex PowerShell process tests every eligible terminal node against `https://api.github.com`, selects the lowest-latency successful node, switches the primary selectable group, and performs a final proxied verification.
 - A successful result is reused only in the current PowerShell process. Run `codex-proxy-refresh` to force another full test. Failed attempts remain retryable.
 - If selection or final verification fails, proxy environment variables are not changed.

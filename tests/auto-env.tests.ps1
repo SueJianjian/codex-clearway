@@ -40,6 +40,9 @@ try {
     $global:CodexClearwaySelectCalls = 0
 
     . (Join-Path $PSScriptRoot "..\scripts\auto-env.ps1")
+    foreach ($commandName in "codex-proxy-status", "codex-proxy-start", "codex-proxy-stop", "codex-proxy-refresh") {
+        Assert-True ([bool](Get-Command $commandName -ErrorAction SilentlyContinue)) "$commandName is available before proxy enable"
+    }
     $expectedManager = (Resolve-Path (Join-Path $PSScriptRoot "..\scripts\codex-split-proxy.ps1")).Path
     Assert-Equal $expectedManager (Get-CodexClearwayManagerPath) "manager path is captured when auto-env loads"
     codex-proxy-enable -Quiet

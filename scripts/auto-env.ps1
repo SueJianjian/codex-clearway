@@ -16,6 +16,24 @@ function Invoke-CodexClearwayManager($Manager, [string]$Command) {
     return & $Manager $Command
 }
 
+function global:codex-proxy-status {
+    Invoke-CodexClearwayManager (Get-CodexClearwayManagerPath) "status"
+}
+
+function global:codex-proxy-stop {
+    Invoke-CodexClearwayManager (Get-CodexClearwayManagerPath) "stop"
+}
+
+function global:codex-proxy-start {
+    Invoke-CodexClearwayManager (Get-CodexClearwayManagerPath) "start"
+}
+
+function global:codex-proxy-refresh {
+    param([switch]$Quiet)
+    $global:CodexClearwaySelectionVerified = $false
+    codex-proxy-enable -Quiet:$Quiet
+}
+
 function global:codex-proxy-enable {
     param(
         [switch]$Quiet
@@ -55,24 +73,6 @@ function global:codex-proxy-enable {
     $env:HTTPS_PROXY = "http://127.0.0.1:$httpPort"
     $env:ALL_PROXY = "socks5://127.0.0.1:$socksPort"
     $env:NO_PROXY = "localhost,127.0.0.1,::1,.local"
-
-    function global:codex-proxy-status {
-        Invoke-CodexClearwayManager $manager "status"
-    }
-
-    function global:codex-proxy-stop {
-        Invoke-CodexClearwayManager $manager "stop"
-    }
-
-    function global:codex-proxy-start {
-        Invoke-CodexClearwayManager $manager "start"
-    }
-
-    function global:codex-proxy-refresh {
-        param([switch]$Quiet)
-        $global:CodexClearwaySelectionVerified = $false
-        codex-proxy-enable -Quiet:$Quiet
-    }
 
         if (!$Quiet) {
             Write-Host "Codex Clearway enabled for this PowerShell session: 127.0.0.1:$httpPort"

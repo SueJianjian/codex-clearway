@@ -137,7 +137,7 @@ Run one command through the proxy without auto mode:
 .\scripts\proxy-run.ps1 curl.exe -I https://api.github.com
 ```
 
-Inside Codex terminals with auto mode installed, helper commands are also available:
+After auto mode is installed, helper commands are available in new PowerShell sessions. Automatic enable remains limited to Codex terminals:
 
 ```powershell
 codex-proxy-enable
