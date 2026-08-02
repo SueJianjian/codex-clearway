@@ -9,3 +9,4 @@ config.json
 GeoIP.dat
 GeoSite.dat
 *.pid
+.worktrees/
