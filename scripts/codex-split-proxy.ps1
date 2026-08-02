@@ -1,6 +1,6 @@
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("init", "start", "stop", "status", "update", "env", "run", "config-path")]
+    [ValidateSet("init", "start", "stop", "status", "update", "env", "run", "config-path", "migrate-config")]
     [string]$Command = "status",
 
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -19,6 +19,10 @@ $ErrorLogPath = Join-Path $AppDir "mihomo.err.log"
 $PidPath = Join-Path $AppDir "mihomo.pid"
 $DefaultHttpPort = 7890
 $DefaultSocksPort = 7891
+$DefaultControllerPort = 19090
+$DefaultTestUrl = "https://api.github.com"
+$DefaultTestTimeoutMs = 5000
+$DefaultTestConcurrency = 6
 $MihomoVersion = "v1.19.13"
 $MihomoZipUrl = "https://github.com/MetaCubeX/mihomo/releases/download/$MihomoVersion/mihomo-windows-amd64-$MihomoVersion.zip"
 
@@ -26,15 +30,44 @@ function Ensure-AppDir {
     New-Item -ItemType Directory -Force -Path $AppDir, $BinDir | Out-Null
 }
 
+function New-ControllerSecret {
+    $bytes = New-Object byte[] 32
+    $generator = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $generator.GetBytes($bytes)
+    } finally {
+        $generator.Dispose()
+    }
+    return (($bytes | ForEach-Object { $_.ToString("x2") }) -join "")
+}
+
+function Get-ConfigProperty($Config, [string]$Name, $Default) {
+    $property = $Config.PSObject.Properties[$Name]
+    if ($property -and $null -ne $property.Value -and !($property.Value -is [string] -and [string]::IsNullOrWhiteSpace($property.Value))) {
+        return $property.Value
+    }
+    return $Default
+}
+
+function Merge-ConfigDefaults($Config) {
+    if ($null -eq $Config) { $Config = [pscustomobject]@{} }
+    return [pscustomobject][ordered]@{
+        subscriptionUrl = [string](Get-ConfigProperty $Config "subscriptionUrl" "")
+        httpPort = [int](Get-ConfigProperty $Config "httpPort" $DefaultHttpPort)
+        socksPort = [int](Get-ConfigProperty $Config "socksPort" $DefaultSocksPort)
+        controllerPort = [int](Get-ConfigProperty $Config "controllerPort" $DefaultControllerPort)
+        controllerSecret = [string](Get-ConfigProperty $Config "controllerSecret" (New-ControllerSecret))
+        testUrl = [string](Get-ConfigProperty $Config "testUrl" $DefaultTestUrl)
+        testTimeoutMs = [int](Get-ConfigProperty $Config "testTimeoutMs" $DefaultTestTimeoutMs)
+        testConcurrency = [int](Get-ConfigProperty $Config "testConcurrency" $DefaultTestConcurrency)
+    }
+}
+
 function Read-JsonConfig {
     if (!(Test-Path $ConfigPath)) {
-        return [ordered]@{
-            subscriptionUrl = ""
-            httpPort = $DefaultHttpPort
-            socksPort = $DefaultSocksPort
-        }
+        return Merge-ConfigDefaults $null
     }
-    return Get-Content -Raw $ConfigPath | ConvertFrom-Json
+    return Merge-ConfigDefaults (Get-Content -Raw $ConfigPath | ConvertFrom-Json)
 }
 
 function Write-JsonConfig($Config) {
@@ -47,6 +80,7 @@ function Assert-Configured {
     if ([string]::IsNullOrWhiteSpace($config.subscriptionUrl)) {
         throw "No subscription is configured. Run: .\codex-split-proxy.ps1 init <clash-subscription-url>"
     }
+    Write-JsonConfig $config
     return $config
 }
 
@@ -170,7 +204,7 @@ function Convert-ToSingleQuotedYaml($Value) {
     return "'" + ($Value -replace "'", "''") + "'"
 }
 
-function Build-MihomoConfig($SubscriptionText, $HttpPort, $SocksPort) {
+function Build-MihomoConfig($SubscriptionText, $HttpPort, $SocksPort, $ControllerPort, $ControllerSecret) {
     if (!(Test-IsYamlLike $SubscriptionText)) {
         throw "The subscription does not look like Clash/mihomo YAML. Please use a Clash-compatible subscription URL."
     }
@@ -197,6 +231,8 @@ function Build-MihomoConfig($SubscriptionText, $HttpPort, $SocksPort) {
     $builder.Add("mode: rule")
     $builder.Add("log-level: info")
     $builder.Add("ipv6: false")
+    $builder.Add("external-controller: 127.0.0.1:$ControllerPort")
+    $builder.Add("secret: $(Convert-ToSingleQuotedYaml $ControllerSecret)")
     $builder.Add("")
 
     foreach ($line in $proxyLines) { $builder.Add($line) }
@@ -248,7 +284,7 @@ function Update-ConfigFromSubscription {
     }
 
     Set-Content -Encoding UTF8 $SubscriptionPath $subscriptionText
-    $mihomoYaml = Build-MihomoConfig $subscriptionText $config.httpPort $config.socksPort
+    $mihomoYaml = Build-MihomoConfig $subscriptionText $config.httpPort $config.socksPort $config.controllerPort $config.controllerSecret
     Set-Content -Encoding UTF8 $MihomoConfigPath $mihomoYaml
     Write-Host "Generated $MihomoConfigPath"
 }
@@ -276,6 +312,7 @@ function Invoke-Run($ArgsToRun) {
     exit $LASTEXITCODE
 }
 
+if ($env:CODEX_CLEARWAY_TEST_IMPORT -ne "1") {
 switch ($Command) {
     "init" {
         if (!$Rest -or [string]::IsNullOrWhiteSpace($Rest[0])) {
@@ -287,6 +324,7 @@ switch ($Command) {
             httpPort = $DefaultHttpPort
             socksPort = $DefaultSocksPort
         }
+        $config = Merge-ConfigDefaults ([pscustomobject]$config)
         Write-JsonConfig $config
         Update-ConfigFromSubscription
         Write-Host "Saved private config to $ConfigPath"
@@ -303,6 +341,7 @@ switch ($Command) {
         if (!(Test-Path $MihomoConfigPath)) { Update-ConfigFromSubscription }
         Assert-PortFree $config.httpPort
         Assert-PortFree $config.socksPort
+        Assert-PortFree $config.controllerPort
         $mihomo = Install-Mihomo
         $args = @("-f", $MihomoConfigPath, "-d", $AppDir)
         $process = Start-Process -FilePath $mihomo -ArgumentList $args -WorkingDirectory $AppDir -WindowStyle Hidden -RedirectStandardOutput $LogPath -RedirectStandardError $ErrorLogPath -PassThru
@@ -351,4 +390,9 @@ switch ($Command) {
     "config-path" {
         Write-Output $ConfigPath
     }
+    "migrate-config" {
+        $config = Assert-Configured
+        Write-Host "Migrated private config at $ConfigPath"
+    }
+}
 }
