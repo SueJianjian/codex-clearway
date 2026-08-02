@@ -40,6 +40,8 @@ try {
     $global:CodexClearwaySelectCalls = 0
 
     . (Join-Path $PSScriptRoot "..\scripts\auto-env.ps1")
+    $expectedManager = (Resolve-Path (Join-Path $PSScriptRoot "..\scripts\codex-split-proxy.ps1")).Path
+    Assert-Equal $expectedManager (Get-CodexClearwayManagerPath) "manager path is captured when auto-env loads"
     codex-proxy-enable -Quiet
     codex-proxy-enable -Quiet
     Assert-Equal 1 $global:CodexClearwaySelectCalls "successful selection runs once per process"

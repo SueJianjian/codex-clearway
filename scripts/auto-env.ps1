@@ -1,6 +1,12 @@
+$script:CodexClearwayPluginRoot = Split-Path -Parent $PSScriptRoot
+
 function Get-CodexClearwayConfigPath {
     if ($global:CodexClearwayConfigPathOverride) { return $global:CodexClearwayConfigPathOverride }
     return Join-Path $HOME ".codex-split-proxy\config.json"
+}
+
+function Get-CodexClearwayManagerPath {
+    return Join-Path $script:CodexClearwayPluginRoot "scripts\codex-split-proxy.ps1"
 }
 
 function Invoke-CodexClearwayManager($Manager, [string]$Command) {
@@ -24,8 +30,7 @@ function global:codex-proxy-enable {
         return
     }
 
-    $pluginRoot = Split-Path -Parent (Split-Path -Parent $script:MyInvocation.MyCommand.Path)
-    $manager = Join-Path $pluginRoot "scripts\codex-split-proxy.ps1"
+    $manager = Get-CodexClearwayManagerPath
     if (!(Test-Path $manager)) {
         $ErrorActionPreference = $previousErrorActionPreference
         return
