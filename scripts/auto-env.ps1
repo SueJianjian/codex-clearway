@@ -1,3 +1,15 @@
+function Get-CodexClearwayConfigPath {
+    if ($global:CodexClearwayConfigPathOverride) { return $global:CodexClearwayConfigPathOverride }
+    return Join-Path $HOME ".codex-split-proxy\config.json"
+}
+
+function Invoke-CodexClearwayManager($Manager, [string]$Command) {
+    if ($global:CodexClearwayManagerInvoker) {
+        return & $global:CodexClearwayManagerInvoker $Manager $Command
+    }
+    return & $Manager $Command
+}
+
 function global:codex-proxy-enable {
     param(
         [switch]$Quiet
@@ -6,7 +18,7 @@ function global:codex-proxy-enable {
     $previousErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
 
-    $configPath = Join-Path $HOME ".codex-split-proxy\config.json"
+    $configPath = Get-CodexClearwayConfigPath
     if (!(Test-Path $configPath)) {
         $ErrorActionPreference = $previousErrorActionPreference
         return
@@ -24,11 +36,14 @@ function global:codex-proxy-enable {
     $httpPort = if ($config.httpPort) { [int]$config.httpPort } else { 7890 }
     $socksPort = if ($config.socksPort) { [int]$config.socksPort } else { 7891 }
 
-    $httpListening = Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort $httpPort -State Listen -ErrorAction SilentlyContinue
-    $socksListening = Get-NetTCPConnection -LocalAddress 127.0.0.1 -LocalPort $socksPort -State Listen -ErrorAction SilentlyContinue
-    if (!$httpListening -or !$socksListening) {
-        & $manager start *> $null
-        Start-Sleep -Milliseconds 500
+    if ($global:CodexClearwaySelectionVerified -ne $true) {
+        try {
+            Invoke-CodexClearwayManager $manager "select" *> $null
+            $global:CodexClearwaySelectionVerified = $true
+        } catch {
+            if (!$Quiet) { Write-Warning "Codex Clearway could not verify a GitHub route. Proxy variables were not changed." }
+            return
+        }
     }
 
     $env:HTTP_PROXY = "http://127.0.0.1:$httpPort"
@@ -37,15 +52,21 @@ function global:codex-proxy-enable {
     $env:NO_PROXY = "localhost,127.0.0.1,::1,.local"
 
     function global:codex-proxy-status {
-        & $manager status
+        Invoke-CodexClearwayManager $manager "status"
     }
 
     function global:codex-proxy-stop {
-        & $manager stop
+        Invoke-CodexClearwayManager $manager "stop"
     }
 
     function global:codex-proxy-start {
-        & $manager start
+        Invoke-CodexClearwayManager $manager "start"
+    }
+
+    function global:codex-proxy-refresh {
+        param([switch]$Quiet)
+        $global:CodexClearwaySelectionVerified = $false
+        codex-proxy-enable -Quiet:$Quiet
     }
 
         if (!$Quiet) {

@@ -13,6 +13,7 @@ Use this skill when the user wants Codex-launched terminal commands to access no
 - Stores private runtime config in `%USERPROFILE%\.codex-split-proxy`.
 - Keeps the user's subscription URL out of plugin files and source control.
 - Exposes HTTP proxy `127.0.0.1:7890` and SOCKS5 proxy `127.0.0.1:7891`.
+- Uses an authenticated mihomo REST controller bound only to `127.0.0.1:19090` by default.
 - Does not modify Windows global proxy settings or registry values.
 - Does not provide TUN mode.
 
@@ -37,6 +38,7 @@ Manage the background proxy:
 .\scripts\codex-split-proxy.ps1 stop
 .\scripts\codex-split-proxy.ps1 status
 .\scripts\codex-split-proxy.ps1 update
+.\scripts\codex-split-proxy.ps1 select
 ```
 
 Print PowerShell environment variables for the current shell:
@@ -61,10 +63,14 @@ or:
 ## Behavior Notes
 
 - In Codex PowerShell terminals, `auto-env.ps1` can be loaded from the PowerShell profile to automatically start mihomo and export proxy environment variables.
+- Before exporting variables, each new Codex PowerShell process tests every eligible terminal node against `https://api.github.com`, selects the lowest-latency successful node, switches the primary selectable group, and performs a final proxied verification.
+- A successful result is reused only in the current PowerShell process. Run `codex-proxy-refresh` to force another full test. Failed attempts remain retryable.
+- If selection or final verification fails, proxy environment variables are not changed.
 - In an already-open Codex terminal, run `. .\scripts\enable-current-session.ps1` once from the plugin root to activate the current session.
 - The subscription must be Clash/mihomo YAML with a `proxies:` section.
 - If the subscription has `proxy-groups:`, those groups are preserved.
 - If no `proxy-groups:` exists, the script creates a `Proxy` select group from detected proxy names.
 - Generated rules add local/private-network direct rules, then preserve subscription rules. If the subscription has no rules, the fallback is `DOMAIN-SUFFIX,cn,DIRECT` and `MATCH,<proxy-group>`.
-- If port `7890` or `7891` is already in use, startup fails with the owning process instead of killing it.
+- If port `7890`, `7891`, or `19090` is already in use, startup fails with the owning process instead of killing it.
+- Keep an existing GUI proxy available during initial setup. Close it only after Clearway independently selects a node and verifies the GitHub API.
 - If GitHub release downloads are unavailable, copy a compatible `mihomo.exe` to `%USERPROFILE%\.codex-split-proxy\bin\mihomo.exe`.

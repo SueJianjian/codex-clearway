@@ -13,6 +13,7 @@ This project is a local Codex plugin plus a small set of PowerShell scripts. It 
 - Preserves subscription proxy groups and routing rules.
 - Adds local/private-network direct rules before subscription rules.
 - Automatically injects proxy environment variables in Codex PowerShell terminals.
+- Tests every eligible node against `https://api.github.com` once per Codex PowerShell session and selects the lowest-latency working node.
 - Does not modify Windows global proxy settings.
 - Does not write registry proxy settings.
 - Does not enable TUN mode.
@@ -89,6 +90,8 @@ pip install requests
 curl.exe -I https://api.github.com
 ```
 
+Before those variables are exported, Clearway starts mihomo, tests all eligible terminal nodes through the loopback-only controller, switches the primary selectable group to the fastest successful node, and verifies the GitHub API through the selected route. If selection or final verification fails, the existing environment variables are left unchanged.
+
 For an already-open Codex terminal, activate the current session once:
 
 ```powershell
@@ -141,7 +144,10 @@ codex-proxy-enable
 codex-proxy-status
 codex-proxy-start
 codex-proxy-stop
+codex-proxy-refresh
 ```
+
+`codex-proxy-refresh` clears the current PowerShell process's success marker and performs a fresh full node test. A new Codex PowerShell process always starts without the marker and therefore tests again.
 
 ## Runtime Files
 
@@ -168,6 +174,7 @@ Do not publish this runtime directory. It can contain provider secrets.
 The generated config:
 
 - Binds proxy listeners to `127.0.0.1`.
+- Binds the authenticated mihomo REST controller to `127.0.0.1`.
 - Disables LAN exposure.
 - Preserves `proxies:` from the subscription.
 - Preserves `proxy-groups:` from the subscription when present.
@@ -198,7 +205,7 @@ Then run:
 .\scripts\codex-split-proxy.ps1 start
 ```
 
-### Port `7890` or `7891` is already in use
+### Port `7890`, `7891`, or `19090` is already in use
 
 Run:
 
@@ -222,6 +229,17 @@ Run this once in that terminal:
 ```
 
 New Codex terminals will load auto mode through the PowerShell profile.
+
+### No node passes the GitHub test
+
+Keep the existing GUI proxy running while initializing Clearway, refresh the subscription, and retry:
+
+```powershell
+.\scripts\codex-split-proxy.ps1 update
+codex-proxy-refresh
+```
+
+Only close the existing GUI proxy after Clearway has selected a node and successfully requested the GitHub API through its own HTTP listener.
 
 ### A command still does not use the proxy
 
@@ -259,6 +277,7 @@ Remove-Item -Recurse -Force "$HOME\.codex-split-proxy"
 
 - Do not publish your subscription URL.
 - Do not publish generated `mihomo.yaml` or `subscription.yaml`.
+- Do not publish the controller secret stored in `config.json`.
 - Do not publish `%USERPROFILE%\.codex-split-proxy`.
 - Do not paste logs that include provider secrets.
 - Review generated configs before sharing screenshots or bug reports.
