@@ -1,6 +1,6 @@
 {
   "name": "codex-split-proxy",
-  "version": "0.1.0",
+  "version": "0.1.0+codex.20260802223358",
   "description": "Run a local mihomo clearway proxy for Codex terminal commands.",
   "author": {
     "name": "Local developer"
